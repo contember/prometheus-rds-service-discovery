@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  service-discovery:
+    build:
+      dockerfile: ./Dockerfile
+      target: runtime
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+
+      AWS_ACCESS_KEY_ID: xxx
+      AWS_SECRET_ACCESS_KEY: xxx
+      AWS_REGION: eu-west-1
+
+      # Cluster C0
+      SCRAPER_0_CLUSTER: "c0"
+      SCRAPER_0_REGION: "eu-west-1"
+
+      # Cluster C1
+      SCRAPER_1_CLUSTER: "c1"
+      SCRAPER_1_REGION: "eu-west-1"

@@ -14,4 +14,6 @@
 # Go workspace file
 go.work
 
+# Local development & testing
 demo.sh
+docker-compose.override.yaml

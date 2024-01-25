@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 )
 
 type Target struct {
@@ -51,17 +52,22 @@ func main() {
 		return
 	}
 
-	fmt.Println("RDS Instance discovery running")
-	fmt.Println("Flowing cluster ready for scraping:", config.Targets)
+	port := os.Getenv("PORT")
+
+	if port == "" {
+		port = "8080"
+	}
 
 	// Launch HTTP server
 	http.HandleFunc("/discovery", getClusters)
 	http.HandleFunc("/.health", getHealth)
 
-	// todo @sitole: make possible to run with $PORT
-	error := http.ListenAndServe(":3333", nil)
+	fmt.Println("RDS Instance discovery running on port ", port)
+	fmt.Println("Flowing cluster ready for scraping:", config.Targets)
 
-	if error != nil {
-		log.Fatal(error)
+	serverErr := http.ListenAndServe(":"+port, nil)
+
+	if serverErr != nil {
+		log.Fatal(serverErr)
 	}
 }
