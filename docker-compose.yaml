@@ -14,4 +14,7 @@ services:
 
       SCRAPER_0_CLUSTER_ARN: "arn:aws:rds:eu-west-1:xxx:cluster:c0"
       SCRAPER_1_CLUSTER_ARN: "arn:aws:rds:eu-west-1:xxx:cluster:c1"
+
+      # optionally add assume role
       SCRAPER_2_CLUSTER_ARN: "arn:aws:rds:us-east-1:xxx:cluster:admin"
+      SCRAPER_2_ASSUME_ROLE_ARN: "arn:aws:iam::xxx:role/fancy-assume-role"
