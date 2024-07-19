@@ -6,6 +6,10 @@ This service solves issues in case you have RDS autoscaling, and you need to mea
 ![GitHub](https://img.shields.io/github/license/contember/prometheus-rds-service-discovery)
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/contember/prometheus-rds-service-discovery)
 
+Pre-built docker image is available on [Docker Hub](https://hub.docker.com/r/contember/prometheus-rds-service-discovery)
+currently supporting ARM architecture.  
+If you need a different architecture, please open an issue.
+
 ## Table of Contents
 
 1. [Setup](#setup)
