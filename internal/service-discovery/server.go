@@ -26,7 +26,14 @@ func (s *ServiceDiscovery) Serve(_ context.Context, errors chan error) {
 	http.HandleFunc("/.health", s.serverGetHealth)
 
 	log.Println("RDS Instances service discovery running on ", s.serverAddress)
-	log.Println("Flowing cluster ready for scraping:", s.scraper.Targets)
+	log.Println("Flowing cluster ready for scraping")
+	for _, target := range s.scraper.Targets {
+		if target.ClusterAssumeRoleArn == nil {
+			log.Println("Cluster: ", target.ClusterArn, " and number: ", target.ClusterNumber)
+		} else {
+			log.Println("Cluster: ", target.ClusterArn, " with role: ", *target.ClusterAssumeRoleArn, " and number: ", target.ClusterNumber)
+		}
+	}
 
 	errors <- http.ListenAndServe(s.serverAddress, nil)
 }
