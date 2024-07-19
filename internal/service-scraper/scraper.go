@@ -5,14 +5,18 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials/stscreds"
 	"github.com/aws/aws-sdk-go-v2/service/rds"
 	"github.com/aws/aws-sdk-go-v2/service/rds/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/aws/aws-sdk-go/aws/arn"
 	log "github.com/sirupsen/logrus"
 )
 
 type ScrapingTarget struct {
-	ClusterArn    string
-	ClusterNumber int
+	ClusterArn           string
+	ClusterAssumeRoleArn *string
+	ClusterNumber        int
 }
 
 type Scraper struct {
@@ -42,27 +46,27 @@ func NewScraper(targets []ScrapingTarget) *Scraper {
 }
 
 func (s *Scraper) GetInstances(ctx context.Context) ([]ScraperDiscoveredTarget, error) {
-	awsRdsInstances := make([]ScraperDiscoveredTarget, 0)
-	awsSession, err := awsConfig.LoadDefaultConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	awsRds := rds.NewFromConfig(awsSession)
+	instances := make([]ScraperDiscoveredTarget, 0)
 
 	// iterate over all registered clusters
 	for _, cluster := range s.Targets {
-		// filters cluster that contains cluster id that we want
-		filters := []types.Filter{
-			{
-				Name:   aws.String("db-cluster-id"),
-				Values: []string{cluster.ClusterArn},
-			},
+		awsRdsClient, err := s.getClusterAwsClient(ctx, cluster)
+		if err != nil {
+			log.Errorf("Error creating AWS client for cluster %s %v", cluster.ClusterArn, err)
+			continue
 		}
 
-		resp, err := awsRds.DescribeDBInstances(ctx, &rds.DescribeDBInstancesInput{Filters: filters})
+		// describe all instances in the cluster with expected cluster ARN
+		resp, err := awsRdsClient.DescribeDBInstances(
+			ctx,
+			&rds.DescribeDBInstancesInput{
+				Filters: []types.Filter{
+					{Name: aws.String("db-cluster-id"), Values: []string{cluster.ClusterArn}},
+				},
+			},
+		)
 		if err != nil {
-			log.Errorf("Error describing RDS cluster <%s> %v", cluster.ClusterArn, err)
+			log.Errorf("Error describing RDS cluster %s %v", cluster.ClusterArn, err)
 			continue
 		}
 
@@ -79,9 +83,41 @@ func (s *Scraper) GetInstances(ctx context.Context) ([]ScraperDiscoveredTarget, 
 				},
 			}
 
-			awsRdsInstances = append(awsRdsInstances, instanceTarget)
+			instances = append(instances, instanceTarget)
 		}
 	}
 
-	return awsRdsInstances, nil
+	return instances, nil
+}
+
+func (s *Scraper) getClusterAwsClient(ctx context.Context, target ScrapingTarget) (*rds.Client, error) {
+	conf, err := awsConfig.LoadDefaultConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// basic AWS client without assuming role
+	if target.ClusterAssumeRoleArn == nil {
+		return rds.NewFromConfig(conf), nil
+	}
+
+	targetArn, err := arn.Parse(target.ClusterArn)
+	if err != nil {
+		return nil, fmt.Errorf("invalid RDS cluster ARN: %s", target.ClusterArn)
+	}
+
+	// create a new AWS client with assumed role
+	stsClient := sts.NewFromConfig(conf)
+	assumedRoleCred := stscreds.NewAssumeRoleProvider(stsClient, *target.ClusterAssumeRoleArn)
+
+	assumedRoleConfig := conf
+	assumedRoleConfig.Credentials = aws.NewCredentialsCache(assumedRoleCred)
+
+	// this must be here because in AWS RDS API there is error,
+	// you must explicitly set region where cluster is located when assuming role,
+	// or you will receive weird "The parameter Filter: db-cluster-id is not a valid identifier." error message
+	// idk why, but it is what it is
+	assumedRoleConfig.Region = targetArn.Region
+
+	return rds.NewFromConfig(assumedRoleConfig), nil
 }

@@ -25,9 +25,21 @@ func scraperTargetsEnvParser() ([]ScrapingTarget, error) {
 				return nil, fmt.Errorf("invalid key number: %s", keyNumberStr)
 			}
 
+			var assumeRoleArn *string
+
+			// try to find "SCRAPER_X_ASSUME_ROLE_ARN" environment variable
+			assumeRoleKey := fmt.Sprintf("SCRAPER_%d_ASSUME_ROLE_ARN", keyNumber)
+			assumeRoleKeyVal := os.Getenv(assumeRoleKey)
+			if assumeRoleKeyVal == "" {
+				assumeRoleArn = nil
+			} else {
+				assumeRoleArn = &assumeRoleKeyVal
+			}
+
 			target := ScrapingTarget{
-				ClusterArn:    value,
-				ClusterNumber: keyNumber,
+				ClusterArn:           value,
+				ClusterAssumeRoleArn: assumeRoleArn,
+				ClusterNumber:        keyNumber,
 			}
 
 			scrapingTargets = append(scrapingTargets, target)
